@@ -1,0 +1,211 @@
+1️⃣ S — Single Responsibility Principle (SRP)
+
+Ek class ki sirf ek hi reason honi chahiye change hone ki.
+
+❌ Bad Example:
+cppclass Invoice {
+public:
+    void calculateTotal() { /* ... */ }
+    void printInvoice() { /* ... */ }      // printing responsibility
+    void saveToDatabase() { /* ... */ }    // persistence responsibility
+};
+Problem: Ye class 3 kaam kar rahi hai — calculation, printing, aur DB save. Agar printing logic change ho, to Invoice class touch karni padegi jo ki calculation se related nahi.
+✅ Good Example:
+cppclass Invoice {
+public:
+    double calculateTotal() { /* ... */ return 0.0; }
+};
+
+class InvoicePrinter {
+public:
+    void print(const Invoice& inv) { /* ... */ }
+};
+
+class InvoiceRepository {
+public:
+    void save(const Invoice& inv) { /* ... */ }
+};
+Ab har class ki apni ek hi responsibility hai.
+
+
+
+2️⃣ O — Open/Closed Principle (OCP)
+
+Class extension ke liye open honi chahiye, but modification ke liye closed.
+
+❌ Bad Example:
+cppclass AreaCalculator {
+public:
+    double calculateArea(std::string shape, double a, double b = 0) {
+        if (shape == "circle") return 3.14 * a * a;
+        else if (shape == "rectangle") return a * b;
+        // Naya shape add karna ho to yaha if-else badhana padega
+        return 0;
+    }
+};
+✅ Good Example:
+cppclass Shape {
+public:
+    virtual double area() const = 0;
+    virtual ~Shape() = default;
+};
+
+class Circle : public Shape {
+    double radius;
+public:
+    Circle(double r) : radius(r) {}
+    double area() const override { return 3.14 * radius * radius; }
+};
+
+class Rectangle : public Shape {
+    double length, width;
+public:
+    Rectangle(double l, double w) : length(l), width(w) {}
+    double area() const override { return length * width; }
+};
+
+// Naya shape add karna ho -> naya class banao, purana code touch mat karo
+class Triangle : public Shape {
+    double base, height;
+public:
+    Triangle(double b, double h) : base(b), height(h) {}
+    double area() const override { return 0.5 * base * height; }
+};
+
+
+
+3️⃣ L — Liskov Substitution Principle (LSP)
+
+Subclass, parent class ki jagah use ho sake bina behavior tode.
+
+❌ Bad Example (classic mistake):
+cppclass Bird {
+public:
+    virtual void fly() { std::cout << "Flying\n"; }
+};
+
+class Ostrich : public Bird {
+public:
+    void fly() override {
+        throw std::runtime_error("Ostrich can't fly!"); // Behavior break!
+    }
+};
+Ye LSP violate karta hai — kyunki Bird* ke through fly() call karne pe Ostrich crash kar dega. Base class ka "contract" toot gaya.
+✅ Good Example:
+cppclass Bird {
+public:
+    virtual void move() = 0;
+};
+
+class FlyingBird : public Bird {
+public:
+    void move() override { std::cout << "Flying\n"; }
+};
+
+class NonFlyingBird : public Bird {
+public:
+    void move() override { std::cout << "Running\n"; }
+};
+
+class Sparrow : public FlyingBird {};
+class Ostrich : public NonFlyingBird {};
+Ab hierarchy sahi hai — koi unexpected behavior nahi.
+
+
+
+4️⃣ I — Interface Segregation Principle (ISP)
+
+Client ko wo methods implement karne ke liye force mat karo jo use hi nahi karta.
+
+❌ Bad Example:
+cppclass Worker {
+public:
+    virtual void work() = 0;
+    virtual void eat() = 0;
+};
+
+class RobotWorker : public Worker {
+public:
+    void work() override { std::cout << "Working\n"; }
+    void eat() override { 
+        // Robot khata nahi! Force karke empty/exception implementation
+        throw std::runtime_error("Robot doesn't eat");
+    }
+};
+✅ Good Example:
+cppclass Workable {
+public:
+    virtual void work() = 0;
+};
+
+class Eatable {
+public:
+    virtual void eat() = 0;
+};
+
+class HumanWorker : public Workable, public Eatable {
+public:
+    void work() override { std::cout << "Working\n"; }
+    void eat() override { std::cout << "Eating\n"; }
+};
+
+class RobotWorker : public Workable {
+public:
+    void work() override { std::cout << "Working\n"; }
+    // eat() implement karne ki zaroorat hi nahi
+};
+Fat interface ko chote-chote interfaces mein tod diya (Workable, Eatable).
+
+
+
+5️⃣ D — Dependency Inversion Principle (DIP)
+
+High-level modules, low-level modules pe directly depend nahi karne chahiye — dono ko abstraction pe depend karna chahiye.
+
+❌ Bad Example:
+cppclass MySQLDatabase {
+public:
+    void save(std::string data) { std::cout << "Saving to MySQL\n"; }
+};
+
+class UserService {
+    MySQLDatabase db;  // Tightly coupled!
+public:
+    void saveUser(std::string data) { db.save(data); }
+};
+Problem: Kal ko agar MongoDB use karna ho, to UserService ka code hi change karna padega.
+✅ Good Example:
+cppclass Database {
+public:
+    virtual void save(std::string data) = 0;
+    virtual ~Database() = default;
+};
+
+class MySQLDatabase : public Database {
+public:
+    void save(std::string data) override { std::cout << "Saving to MySQL\n"; }
+};
+
+class MongoDatabase : public Database {
+public:
+    void save(std::string data) override { std::cout << "Saving to MongoDB\n"; }
+};
+
+class UserService {
+    Database* db;  // Abstraction pe depend
+public:
+    UserService(Database* database) : db(database) {}
+    void saveUser(std::string data) { db->save(data); }
+};
+
+// Usage:
+int main() {
+    MySQLDatabase mysql;
+    UserService service(&mysql);
+    service.saveUser("John Doe");
+
+    MongoDatabase mongo;
+    UserService service2(&mongo);
+    service2.saveUser("Jane Doe");
+}
+Ab UserService ko koi farak nahi padta kaunsa database hai — ye Dependency Injection ka example bhi hai.
